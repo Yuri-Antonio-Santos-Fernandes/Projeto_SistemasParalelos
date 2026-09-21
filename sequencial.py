@@ -1,5 +1,6 @@
-import time
+import argparse
 import math
+import time
 
 
 def eh_primo(n):
@@ -31,9 +32,31 @@ def contar_primos(inicio, fim):
     return contador
 
 
+def ler_argumentos():
+    parser = argparse.ArgumentParser(
+        description="Conta números primos em um intervalo usando execução sequencial."
+    )
+    parser.add_argument(
+        "inicio",
+        type=int,
+        help="limite inferior do intervalo (inclusivo)",
+    )
+    parser.add_argument(
+        "fim",
+        type=int,
+        help="limite superior do intervalo (inclusivo)",
+    )
+
+    args = parser.parse_args()
+
+    if args.inicio > args.fim:
+        parser.error("o valor de inicio deve ser menor ou igual ao valor de fim")
+
+    return args.inicio, args.fim
+
+
 if __name__ == "__main__":
-    inicio = 1
-    fim = 50_000_000
+    inicio, fim = ler_argumentos()
 
     print(f"Procurando números primos de {inicio} até {fim}...")
 
