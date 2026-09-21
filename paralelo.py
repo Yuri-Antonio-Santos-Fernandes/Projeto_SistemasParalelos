@@ -22,115 +22,102 @@ def eh_primo(n):
     return True
 
 
-def contar_primos(inicio, fim, contador_compartilhado, lock):
-    tempo_inicio = time.perf_counter()
+def primeiro_impar(inicio):
+    """Retorna o primeiro número ímpar >= inicio e >= 3."""
+    inicio = max(inicio, 3)
+    return inicio if inicio % 2 == 1 else inicio + 1
 
+
+def contar_primos_distribuidos(
+    primeiro_numero,
+    fim,
+    passo,
+    contador_compartilhado,
+    lock,
+    numero_processo,
+):
+    """
+    Cada processo percorre números ímpares intercalados ao longo de todo
+    o intervalo. Assim, todos recebem números pequenos e grandes, evitando
+    que um único processo fique responsável apenas pela parte mais cara.
+    """
+    tempo_inicio = time.perf_counter()
     contador_local = 0
 
-    for numero in range(inicio, fim + 1):
+    for numero in range(primeiro_numero, fim + 1, passo):
         if eh_primo(numero):
             contador_local += 1
 
     tempo_fim = time.perf_counter()
+    tempo_local = tempo_fim - tempo_inicio
 
     print(
-        f"Intervalo {inicio} até {fim}: "
-        f"{contador_local} primos em "
-        f"{tempo_fim - tempo_inicio:.2f} segundos"
+        f"Processo-{numero_processo}: "
+        f"{contador_local} primos em {tempo_local:.2f} segundos"
     )
 
+    # Seção crítica: todos os processos escrevem no mesmo contador.
+    # O lock protege somente a soma final de cada trabalhador.
     with lock:
         contador_compartilhado.value += contador_local
 
 
-def dividir_intervalo(inicio, fim, quantidade_processos):
-    total_numeros = fim - inicio + 1
-    tamanho_base = total_numeros // quantidade_processos
-    resto = total_numeros % quantidade_processos
-
-    intervalos = []
-    inicio_atual = inicio
-
-    for i in range(quantidade_processos):
-        tamanho = tamanho_base
-
-        #distribuição dos números entre os primeiros processos
-        if i < resto:
-            tamanho += 1
-
-        fim_atual = inicio_atual + tamanho - 1
-
-        intervalos.append((inicio_atual, fim_atual))
-
-        inicio_atual = fim_atual + 1
-
-    return intervalos
-
-
 if __name__ == "__main__":
-
     inicio = 1
     fim = 50_000_000
 
+    # A EC2 t3.micro utilizada no projeto possui 2 vCPUs.
     quantidade_processos = 2
 
     print(f"Procurando números primos de {inicio} até {fim}...")
     print(f"Processos utilizados: {quantidade_processos}")
+    print("Estratégia: distribuição intercalada dos números ímpares")
 
-    #estado compartilhado entre todos os processos
-    contador_compartilhado = multiprocessing.Value("i", 0)
+    # O número 2 é tratado separadamente, pois os trabalhadores recebem
+    # apenas ímpares. Usa 64 bits para suportar intervalos maiores.
+    contador_inicial = 1 if inicio <= 2 <= fim else 0
+    contador_compartilhado = multiprocessing.Value("q", contador_inicial)
 
-    #sincronização
     lock = multiprocessing.Lock()
 
-    #divide o trabalho entre os processos
-    intervalos = [
-    (1, 28_500_000),
-    (28_500_001, 50_000_000)
-    ]
-
-    print("\nIntervalos atribuídos:")
-
-    for i, intervalo in enumerate(intervalos):
-        print(
-            f"Processo-{i + 1}: "
-            f"{intervalo[0]} até {intervalo[1]}"
-        )
+    primeiro = primeiro_impar(inicio)
+    passo = 2 * quantidade_processos
 
     processos = []
 
+    print("\nTrabalho atribuído:")
+    for i in range(quantidade_processos):
+        inicio_processo = primeiro + (2 * i)
+        print(
+            f"Processo-{i + 1}: começa em {inicio_processo}, "
+            f"passo {passo}, até {fim}"
+        )
+
     tempo_inicio = time.perf_counter()
 
-    #cria os processos
-    for intervalo in intervalos:
+    for i in range(quantidade_processos):
+        inicio_processo = primeiro + (2 * i)
 
         processo = multiprocessing.Process(
-            target=contar_primos,
+            target=contar_primos_distribuidos,
             args=(
-                intervalo[0],
-                intervalo[1],
+                inicio_processo,
+                fim,
+                passo,
                 contador_compartilhado,
-                lock
-            )
+                lock,
+                i + 1,
+            ),
         )
 
         processos.append(processo)
         processo.start()
 
-    #aguarda pelos processos terminarem
     for processo in processos:
         processo.join()
 
     tempo_fim = time.perf_counter()
 
     print("\nResultado:")
-    print(
-        f"Quantidade de primos: "
-        f"{contador_compartilhado.value}"
-    )
-
-    print(
-        f"Tempo: "
-        f"{tempo_fim - tempo_inicio:.2f} segundos"
-    )
-
+    print(f"Quantidade de primos: {contador_compartilhado.value}")
+    print(f"Tempo: {tempo_fim - tempo_inicio:.2f} segundos")
