@@ -23,13 +23,22 @@ def eh_primo(n):
 
 
 def contar_primos(inicio, fim, contador_compartilhado, lock):
+    tempo_inicio = time.perf_counter()
+
     contador_local = 0
 
     for numero in range(inicio, fim + 1):
         if eh_primo(numero):
             contador_local += 1
 
-    #seção crítica --> vários processos escrevem no mesmo contador.
+    tempo_fim = time.perf_counter()
+
+    print(
+        f"Intervalo {inicio} até {fim}: "
+        f"{contador_local} primos em "
+        f"{tempo_fim - tempo_inicio:.2f} segundos"
+    )
+
     with lock:
         contador_compartilhado.value += contador_local
 
