@@ -84,11 +84,10 @@ if __name__ == "__main__":
     lock = multiprocessing.Lock()
 
     #divide o trabalho entre os processos
-    intervalos = dividir_intervalo(
-        inicio,
-        fim,
-        quantidade_processos
-    )
+    intervalos = [
+    (1, 28_500_000),
+    (28_500_001, 50_000_000)
+    ]
 
     print("\nIntervalos atribuídos:")
 
