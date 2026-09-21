@@ -63,7 +63,7 @@ if __name__ == "__main__":
     inicio = 1
     fim = 50_000_000
 
-    quantidade_processos = 4
+    quantidade_processos = 2
 
     print(f"Procurando números primos de {inicio} até {fim}...")
     print(f"Processos utilizados: {quantidade_processos}")
